@@ -4,7 +4,7 @@
   "private": true,
   "description": "Gerador automático de artigos SEO para Blogger e WordPress com IA (Gemini, DeepSeek, OpenAI). Painel completo com score de SEO, imagens, referências e publicação como rascunho.",
   "engines": {
-    "node": "20.x"
+    "node": "26.x"
   },
   "scripts": {
     "dev": "next dev",
