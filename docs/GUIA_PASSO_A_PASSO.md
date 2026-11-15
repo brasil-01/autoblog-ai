@@ -148,7 +148,7 @@ Vercel → seu projeto → **Settings → Domains** → adicionar `meublog.com.b
 3. Copie a chave `AIza…` → variável `GEMINI_API_KEY`
 4. No app → **Configurações → Provedores de IA** → selecione **Google Gemini** como padrão → **Testar**
 
-**Modelos:** `gemini-2.5-flash` (rápido e barato — padrão), `gemini-2.5-pro` (melhor qualidade para guias longos).
+**Modelos:** `gemini-3.5-flash` (rápido — padrão), `gemini-3.1-flash-lite` (mais barato), `gemini-3.1-pro-preview` (melhor qualidade para guias longos). Os modelos 2.x foram descontinuados pelo Google.
 **Limites do free tier:** chegam a dezenas de artigos/dia em flash. Se estourar, espere 1 minuto (limite por minuto) ou troque para o DeepSeek.
 
 ---
