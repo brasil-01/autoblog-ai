@@ -10,6 +10,12 @@ const TONES = [
   ['lista', 'Lista ("10 melhores…")'],
   ['opiniao', 'Opinião de especialista'],
 ];
+const LANGUAGES = [
+  ['pt-BR', 'Português (Brasil)'],
+  ['pt-PT', 'Português (Portugal)'],
+  ['en', 'English'],
+  ['es', 'Español'],
+];
 const SIZES = [
   [900, '~900 palavras (rápido)'],
   [1200, '~1.200 palavras (recomendado)'],
@@ -42,8 +48,13 @@ export default function GerarPage() {
   const [form, setForm] = useState({
     topic: '', keyword: '', niche: '', tone: 'informativo', wordCount: 1200,
     provider: 'gemini', model: '', includeFaq: true, imageSource: 'auto',
+    language: 'pt-BR', title: '',
   });
   const [providers, setProviders] = useState([]);
+  const [catalog, setCatalog] = useState({ categories: [], keywords: [] });
+  const [titles, setTitles] = useState([]);
+  const [sugLoading, setSugLoading] = useState(false);
+  const [sugError, setSugError] = useState('');
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState(0);
   const [result, setResult] = useState(null);
@@ -55,6 +66,8 @@ export default function GerarPage() {
       if (s?.providers) setProviders(s.providers);
       setForm(f => ({ ...f, provider: s?.values?.default_provider || 'gemini', model: s?.values?.default_model || '' }));
     }).catch(() => {});
+    fetch('/api/catalog/categories').then(r => r.json()).then(d => setCatalog(c => ({ ...c, categories: d.categories || [] }))).catch(() => {});
+    fetch('/api/catalog/keywords').then(r => r.json()).then(d => setCatalog(c => ({ ...c, keywords: d.keywords || [] }))).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -63,8 +76,29 @@ export default function GerarPage() {
     return () => clearInterval(t);
   }, [busy]);
 
+  async function suggestTitles() {
+    if (!form.topic.trim()) { setSugError('Digite o tópico primeiro.'); return; }
+    setSugLoading(true); setSugError(''); setTitles([]);
+    try {
+      const res = await fetch('/api/titles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic: form.topic, keyword: form.keyword || form.topic, niche: form.niche, language: form.language, provider: form.provider, model: form.model }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || 'Erro ao sugerir títulos');
+      setTitles(d.titles || []);
+    } catch (e) {
+      setSugError(e.message);
+    } finally {
+      setSugLoading(false);
+    }
+  }
+
   const selectedProvider = providers.find(p => p.id === form.provider);
   const modelOptions = selectedProvider?.models || [];
+  const catalogKeywords = catalog.keywords.filter(k => !form.language || k.language === form.language);
+  const catalogCategories = catalog.categories.filter(c => !form.language || c.language === form.language);
 
   async function submit(e) {
     e.preventDefault();
@@ -103,10 +137,56 @@ export default function GerarPage() {
           <label className="f-label">Tópico ou palavra-chave *</label>
           <input className="f-input" placeholder="ex.: como escolher notebook para programador" value={form.topic} onChange={e => setForm({ ...form, topic: e.target.value })} autoFocus />
           <div className="f-hint">Funciona melhor com termos de cauda longa (3+ palavras), ex.: “melhor notebook até 4000 reais para home office”.</div>
+          <button type="button" className="btn btn-ghost" style={{ marginTop: 10 }} disabled={sugLoading || !form.topic.trim()} onClick={suggestTitles}>
+            {sugLoading ? <><span className="spinner" /> Sugerindo títulos…</> : '✨ Sugerir 12 títulos para este tema'}
+          </button>
+          {sugError && <div className="notice notice-error" style={{ marginTop: 8 }}>{sugError}</div>}
 
           <label className="f-label">Palavra-chave principal (opcional)</label>
-          <input className="f-input" placeholder="padrão: o mesmo tópico acima" value={form.keyword} onChange={e => setForm({ ...form, keyword: e.target.value })} />
+          <input className="f-input" list="catalogo-keywords" placeholder="padrão: o mesmo tópico acima — ou escolha do catálogo" value={form.keyword} onChange={e => setForm({ ...form, keyword: e.target.value })} />
+          <datalist id="catalogo-keywords">
+            {catalogKeywords.slice(0, 60).map(k => <option key={k.id} value={k.keyword}>{k.intent} · {k.difficulty}</option>)}
+          </datalist>
+          <div className="f-hint">Lista vem do seu <a href="/catalogo" style={{ color: 'var(--amber)' }}>Catálogo</a>. Cadastre novas em /catalogo.</div>
 
+          {titles.length > 0 && (
+            <div style={{ margin: '14px 0', border: '1px solid var(--border)', borderRadius: 12, padding: 12, background: 'var(--bg-soft)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, gap: 8, flexWrap: 'wrap' }}>
+                <strong style={{ fontSize: 13 }}>Escolha o título do artigo ({titles.length} opções):</strong>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {form.title && <button type="button" className="copy-btn" onClick={() => setForm({ ...form, title: '' })}>limpar escolha</button>}
+                  <button type="button" className="copy-btn" onClick={() => setTitles([])}>fechar</button>
+                </div>
+              </div>
+              <div style={{ maxHeight: 260, overflowY: 'auto' }}>
+                {titles.map((t, i) => (
+                  <label key={i} className="title-option" style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '8px 10px', borderRadius: 8, cursor: 'pointer', marginBottom: 6, border: form.title === t.title ? '1px solid var(--amber)' : '1px solid transparent' }}>
+                    <input type="radio" name="titulo-sugerido" checked={form.title === t.title} onChange={() => setForm({ ...form, title: t.title, keyword: t.keyword || form.keyword })} style={{ marginTop: 3 }} />
+                    <span>
+                      <span style={{ fontSize: 13, lineHeight: 1.4, display: 'block' }}>{t.title}</span>
+                      <span className="f-hint" style={{ marginTop: 2, display: 'block' }}>{t.angle} · <span className={`badge ${t.intent === 'comercial' ? 'badge-blogger' : 'badge-muted'}`} style={{ fontSize: 10 }}>{t.intent}</span></span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+              {form.title && <div className="notice notice-ok" style={{ marginTop: 8, fontSize: 12 }}>Título selecionado será usado exatamente: {form.title}</div>}
+            </div>
+          )}
+          <div className="f-row" style={{ marginTop: 14 }}>
+            <div>
+              <label className="f-label">Idioma do artigo</label>
+              <select className="f-select" value={form.language} onChange={e => { setForm({ ...form, language: e.target.value }); setTitles([]); }}>
+                {LANGUAGES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="f-label">Categoria do catálogo (opcional)</label>
+              <select className="f-select" value="" onChange={e => { const c = catalogCategories.find(x => x.id === e.target.value); if (c) setForm({ ...form, niche: c.name }); }}>
+                <option value="">— escolher e preencher o nicho —</option>
+                {catalogCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+          </div>
           <div className="f-row">
             <div>
               <label className="f-label">Nicho / segmento</label>
@@ -163,7 +243,7 @@ export default function GerarPage() {
           {error && <div className="notice notice-error" style={{ marginTop: 14 }}>{error}</div>}
 
           <button type="submit" className="btn btn-primary" disabled={busy || !form.topic.trim()} style={{ width: '100%', justifyContent: 'center', marginTop: 16, padding: '14px 18px', fontSize: 14 }}>
-            {busy ? <><span className="spinner" /> Gerando artigo…</> : '⚡ Gerar artigo agora'}
+            {busy ? <><span className="spinner" /> Gerando artigo…</> : form.title ? '⚡ Gerar artigo com o título escolhido' : '⚡ Gerar artigo agora'}
           </button>
           <p className="f-hint" style={{ textAlign: 'center', marginTop: 8 }}>O conteúdo fica salvo como <strong>rascunho</strong> — nada vai ao ar até você revisar.</p>
         </form>

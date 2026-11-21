@@ -12,6 +12,7 @@ const NAV = [
   { href: '/artigos', label: 'Meus Artigos', d: 'M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zM14 2v6h6M9 13h6M9 17h6M9 9h2' },
 ];
 const NAV2 = [
+  { href: '/catalogo', label: 'Catálogo: nichos & keywords', d: 'M4 6h16M4 12h16M4 18h10' },
   { href: '/checklist', label: 'Checklist AdSense & SEO', d: 'M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11' },
   { href: '/configuracoes', label: 'Configurações', d: 'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6' },
 ];
